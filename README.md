@@ -1,1 +1,1 @@
-edu-solution-api_my
+# edu-solution-api

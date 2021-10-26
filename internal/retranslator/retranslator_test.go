@@ -1,6 +1,7 @@
 package retranslator
 
 import (
+	"context"
 	"github.com/ozonmp/edu-solution-api/internal/mocks"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ func TestStart(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := mocks.NewMockEventRepo(ctrl)
 	sender := mocks.NewMockEventSender(ctrl)
+	ctx, _ := context.WithCancel(context.Background())
 
 	repo.EXPECT().Lock(gomock.Any()).AnyTimes()
 
@@ -28,7 +30,7 @@ func TestStart(t *testing.T) {
 	}
 
 	retranslator := NewRetranslator(cfg)
-	retranslator.Start()
-	time.Sleep(time.Second * 20)
+	retranslator.Start(ctx)
+	time.Sleep(time.Second * 2)
 	retranslator.Close()
 }

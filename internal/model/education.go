@@ -32,3 +32,23 @@ type SolutionEvent struct {
 	Status EventStatus
 	Entity *solution
 }
+func (s * SolutionEvent) SetStatus(typeSE EventType, status EventStatus) {
+	s.Type = typeSE
+	s.Status = status
+}
+func (s * SolutionEvent) Lock(n uint64) ([]SolutionEvent, error){
+	dat := make([]SolutionEvent, 100)
+	return dat, nil
+}
+
+func (s * SolutionEvent) Unlock(eventIDs []uint64) error{
+	return nil
+}
+
+func (s * SolutionEvent) Add(event []SolutionEvent) error{
+	return nil
+}
+
+func (s * SolutionEvent) Remove(eventIDs []uint64) error{
+	return nil
+}

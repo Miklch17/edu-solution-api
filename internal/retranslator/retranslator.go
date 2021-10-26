@@ -1,12 +1,18 @@
 package retranslator
 
 import (
-	"time"
+	"context"
 	"github.com/gammazero/workerpool"
+	"github.com/ozonmp/edu-solution-api/internal/app/consumer"
+	"github.com/ozonmp/edu-solution-api/internal/app/producer"
+	"github.com/ozonmp/edu-solution-api/internal/model"
+	"github.com/ozonmp/edu-solution-api/internal/repo"
+	"github.com/ozonmp/edu-solution-api/internal/sender"
+	"time"
 )
 
 type Retranslator interface {
-	Start()
+	Start(ctx context.Context)
 	Close()
 }
 
@@ -25,14 +31,14 @@ type Config struct {
 }
 
 type retranslator struct {
-	events     chan model.SubdomainEvent
+	events     chan model.SolutionEvent
 	consumer   consumer.Consumer
 	producer   producer.Producer
 	workerPool *workerpool.WorkerPool
 }
 
 func NewRetranslator(cfg Config) Retranslator {
-	events := make(chan model.SubdomainEvent, cfg.ChannelSize)
+	events := make(chan model.SolutionEvent, cfg.ChannelSize)
 	workerPool := workerpool.New(cfg.WorkerCount)
 
 	consumer := consumer.NewDbConsumer(
@@ -55,9 +61,9 @@ func NewRetranslator(cfg Config) Retranslator {
 	}
 }
 
-func (r *retranslator) Start() {
-	r.producer.Start()
-	r.consumer.Start()
+func (r *retranslator) Start(ctx context.Context) {
+	r.producer.Start(ctx)
+	r.consumer.Start(ctx)
 }
 
 func (r *retranslator) Close() {

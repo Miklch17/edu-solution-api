@@ -1,6 +1,7 @@
 package retranslator
 
 import (
+	"github.com/ozonmp/edu-solution-api/internal/mocks"
 	"testing"
 	"time"
 
@@ -17,16 +18,17 @@ func TestStart(t *testing.T) {
 
 	cfg := Config{
 		ChannelSize:   512,
-		ConsumerCount: 2,
+		ConsumerCount: 12,
 		ConsumeSize:   10,
-		ConsumeTimeout: 10 * time.Second,
-		ProducerCount: 2,
-		WorkerCount:   2,
+		ConsumeTimeout: time.Second,
+		ProducerCount: 200,
+		WorkerCount:   20,
 		Repo:          repo,
 		Sender:        sender,
 	}
 
 	retranslator := NewRetranslator(cfg)
 	retranslator.Start()
+	time.Sleep(time.Second * 20)
 	retranslator.Close()
 }

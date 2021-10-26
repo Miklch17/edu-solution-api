@@ -1,6 +1,10 @@
 package producer
 
 import (
+	"context"
+	"github.com/ozonmp/edu-solution-api/internal/batcher"
+	"github.com/ozonmp/edu-solution-api/internal/model"
+	"github.com/ozonmp/edu-solution-api/internal/sender"
 	"sync"
 	"time"
 
@@ -8,7 +12,7 @@ import (
 )
 
 type Producer interface {
-	Start()
+	Start(ctx context.Context)
 	Close()
 }
 
@@ -17,24 +21,22 @@ type producer struct {
 	timeout time.Duration
 
 	sender sender.EventSender
-	events <-chan model.SubdomainEvent
+	events <-chan model.SolutionEvent
 
 	workerPool *workerpool.WorkerPool
 
 	wg   *sync.WaitGroup
-	done chan bool
 }
 
 // todo for students: add repo
 func NewKafkaProducer(
 	n uint64,
 	sender sender.EventSender,
-	events <-chan model.SubdomainEvent,
+	events <-chan model.SolutionEvent,
 	workerPool *workerpool.WorkerPool,
 ) Producer {
 
 	wg := &sync.WaitGroup{}
-	done := make(chan bool)
 
 	return &producer{
 		n:          n,
@@ -42,29 +44,52 @@ func NewKafkaProducer(
 		events:     events,
 		workerPool: workerPool,
 		wg:         wg,
-		done:       done,
 	}
 }
 
-func (p *producer) Start() {
+type Batch interface {
+	AddItem(item func())
+	RunPool()
+}
+
+func (p *producer) Start(ctx context.Context) {
 	for i := uint64(0); i < p.n; i++ {
 		p.wg.Add(1)
 		go func() {
+			batchSize := 100
+			var batchPool Batch
+			batchPool = batcher.NewBatch(batchSize, p.workerPool)
 			defer p.wg.Done()
+			doneEvent := false
 			for {
 				select {
 				case event := <-p.events:
+					if doneEvent {
+						batchPool.AddItem(func() {
+							event.SetStatus(model.Created, model.Deferred)
+							//event.Unlock()???
+						})
+						continue
+					}
 					if err := p.sender.Send(&event); err != nil {
-						p.workerPool.Submit(func() {
-							// ...
+						batchPool.AddItem(func() {
+							event.SetStatus(model.Removed, model.Processed)
+							//event.Unlock()???
 						})
 					} else {
-						p.workerPool.Submit(func() {
-							// ...
+						batchPool.AddItem(func() {
+							event.SetStatus(model.Created, model.Deferred)
+							//event.Unlock()???
 						})
 					}
-				case <-p.done:
-					return
+				case <-ctx.Done():
+					doneEvent = true
+					continue
+				default:
+						if doneEvent {
+							batchPool.RunPool()
+							return
+						}
 				}
 			}
 		}()
@@ -72,6 +97,24 @@ func (p *producer) Start() {
 }
 
 func (p *producer) Close() {
-	close(p.done)
 	p.wg.Wait()
 }
+
+
+/*
+func main() {
+	var allTask []*workerpool.Task
+	for i := 1; i <= 100; i++ {
+		task := workerpool.NewTask(func(data interface{}) error {
+			taskID := data.(int)
+			time.Sleep(100 * time.Millisecond)
+			fmt.Printf("Task %d processed\n", taskID)
+			return nil
+		}, i)
+		allTask = append(allTask, task)
+	}
+
+	pool := workerpool.NewPool(allTask, 5)
+	pool.Run()
+}
+*/
